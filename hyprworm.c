@@ -202,6 +202,9 @@ Config* load_config(void) {
     // Default configuration
     config->launcher_args = NULL;
     config->launcher_argc = 0;
+    config->show_title = 0;
+    config->workspace_aliases = NULL;
+    config->alias_count = 0; 
     
     const char* home = getenv("HOME");
     if (!home) {
@@ -238,6 +241,45 @@ Config* load_config(void) {
     char line[512];
     char* launcher_command = NULL;
     
+    // count workspace aliases
+    int alias_count = 0;
+    fseek(file, 0, SEEK_SET);
+    while (fgets(line, sizeof(line), file)) {
+        char* trimmed = line;
+        while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
+        if (*trimmed == '#' || *trimmed == '\n' || *trimmed == '\0') continue;
+        
+        char* equals = strchr(trimmed, '=');
+        if (!equals) continue;
+        
+        *equals = '\0';
+        char* key = trimmed;
+        while (*key == ' ' || *key == '\t') key++;
+        char* key_end = key + strlen(key) - 1;
+        while (key_end > key && (*key_end == ' ' || *key_end == '\t' || *key_end == '\n')) {
+            *key_end = '\0';
+            key_end--;
+        }
+        
+        if (strncmp(key, "workspace_alias_", 16) == 0) {
+            alias_count++;
+        }
+    }
+    
+    // Allocate space for aliases
+    if (alias_count > 0) {
+        config->workspace_aliases = malloc(alias_count * sizeof(WorkspaceAlias));
+        if (!config->workspace_aliases) {
+            perror("malloc");
+            fclose(file);
+            free_config(config);
+            return NULL;
+        }
+        config->alias_count = 0;
+    }
+    
+    // parse configuration
+    fseek(file, 0, SEEK_SET);
     while (fgets(line, sizeof(line), file)) {
         char* trimmed = line;
         while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
@@ -264,8 +306,27 @@ Config* load_config(void) {
             value_end--;
         }
         
+        // remove quotes if present
+        if (*value == '"' && *value_end == '"' && value_end > value) {
+            value++; 
+            *value_end = '\0';
+        }
+        
         if (strcmp(key, "launcher") == 0) {
             launcher_command = strdup(value);
+        } else if (strcmp(key, "show_title") == 0) {
+            if (strcmp(value, "true") == 0 || strcmp(value, "1") == 0 || strcmp(value, "yes") == 0) {
+                config->show_title = 1;
+            } else if (strcmp(value, "false") == 0 || strcmp(value, "0") == 0 || strcmp(value, "no") == 0) {
+                config->show_title = 0;
+            }
+        } else if (strncmp(key, "workspace_alias_", 16) == 0) {
+            char* alias_name = key + 16;
+            if (config->workspace_aliases && config->alias_count < alias_count) {
+                config->workspace_aliases[config->alias_count].key = strdup(alias_name);
+                config->workspace_aliases[config->alias_count].value = strdup(value);
+                config->alias_count++;
+            }
         }
     }
     
@@ -297,10 +358,66 @@ void free_config(Config* config) {
         free(config->launcher_args);
     }
     
+    if (config->workspace_aliases) {
+        for (int i = 0; i < config->alias_count; i++) {
+            free(config->workspace_aliases[i].key);
+            free(config->workspace_aliases[i].value);
+        }
+        free(config->workspace_aliases);
+    }
+    
     free(config);
 }
 
-char* launch_frontend(WindowList* list, char** command) { 
+char* apply_workspace_alias(const char* workspace_name, Config* config) {
+    if (!workspace_name || !config || !config->workspace_aliases) {
+        return strdup(workspace_name);
+    }
+    
+    // First try exact match
+    for (int i = 0; i < config->alias_count; i++) {
+        if (strcmp(workspace_name, config->workspace_aliases[i].key) == 0) {
+            return strdup(config->workspace_aliases[i].value);
+        }
+    }
+    
+    // replace the alias key within the workspace name
+    char* result = strdup(workspace_name);
+    if (!result) return NULL;
+    
+    for (int i = 0; i < config->alias_count; i++) {
+        char* found = strstr(result, config->workspace_aliases[i].key);
+        if (found) {
+            size_t key_len = strlen(config->workspace_aliases[i].key);
+            size_t value_len = strlen(config->workspace_aliases[i].value);
+            size_t result_len = strlen(result);
+            size_t new_len = result_len - key_len + value_len;
+            
+            char* new_result = malloc(new_len + 1);
+            if (!new_result) {
+                free(result);
+                return NULL;
+            }
+            
+            size_t before_len = found - result;
+            strncpy(new_result, result, before_len);
+            new_result[before_len] = '\0';
+            
+            strcat(new_result, config->workspace_aliases[i].value);
+            
+            strcat(new_result, found + key_len);
+            
+            free(result);
+            result = new_result;
+            
+            break;
+        }
+    }
+    
+    return result;
+}
+
+char* launch_frontend(WindowList* list, char** command, int show_title, Config* config) {
     int pipe_to_child[2];   
     int pipe_from_child[2];
 
@@ -334,9 +451,15 @@ char* launch_frontend(WindowList* list, char** command) {
 
         for (size_t i = 0; i < list->count; i++) {
             WindowInfo* win = &list->windows[i];
+            char* aliased_workspace = apply_workspace_alias(win->workspace_name, config);
             char buffer[1024];
-            snprintf(buffer, sizeof(buffer), "[%s] %s: %s\n", win->workspace_name, win->class_name, win->title);
+            if (show_title) {
+                snprintf(buffer, sizeof(buffer), "[%s] %s: %s\n", aliased_workspace, win->class_name, win->title);
+            } else {
+                snprintf(buffer, sizeof(buffer), "[%s] %s\n", aliased_workspace, win->class_name);
+            }
             write(pipe_to_child[PIPE_WRITE], buffer, strlen(buffer));
+            free(aliased_workspace);
         }
         close(pipe_to_child[PIPE_WRITE]);
 
@@ -356,6 +479,7 @@ char* launch_frontend(WindowList* list, char** command) {
         // Clean up the child process
         close(pipe_from_child[PIPE_READ]);
         waitpid(pid, NULL, 0);
+        
         return selection;
     }
 }
@@ -382,19 +506,26 @@ int main() {
     }
 
     // Launch frontend with configured launcher
-    char* selection = launch_frontend(windows, config->launcher_args);
+    char* selection = launch_frontend(windows, config->launcher_args, config->show_title, config);
 
     // Focus selected window
     if (selection) {
         char* target_address = NULL;
         for (size_t i = 0; i < windows->count; i++) {
             WindowInfo* win = &windows->windows[i];
+            char* aliased_workspace = apply_workspace_alias(win->workspace_name, config);
             char buffer[1024];
-            snprintf(buffer, sizeof(buffer), "[%s] %s: %s", win->workspace_name, win->class_name, win->title);
+            if (config->show_title) {
+                snprintf(buffer, sizeof(buffer), "[%s] %s: %s", aliased_workspace, win->class_name, win->title);
+            } else {
+                snprintf(buffer, sizeof(buffer), "[%s] %s", aliased_workspace, win->class_name);
+            }
             if (strcmp(selection, buffer) == 0) {
                 target_address = win->address;
+                free(aliased_workspace);
                 break;
             }
+            free(aliased_workspace);
         }
 
         if (target_address) {

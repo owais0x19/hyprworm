@@ -16,4 +16,14 @@ typedef struct {
     size_t capacity;
 } WindowList;
 
+typedef struct {
+    char** launcher_args;
+    int launcher_argc;
+} Config;
+
+// Configuration functions
+Config* load_config(void);
+void free_config(Config* config);
+char** parse_launcher_command(const char* command, int* argc);
+
 #endif

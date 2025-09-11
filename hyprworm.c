@@ -7,6 +7,8 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <cjson/cJSON.h>
+#include <pwd.h>
+#include <errno.h>
 #include "hyprworm.h"
 
 #define READ_BUFFER_SIZE 4096
@@ -106,7 +108,198 @@ void free_window_list(WindowList* list) {
     free(list);
 }
 
-// UI Bridge
+// Configuration parsing functions
+char** parse_launcher_command(const char* command, int* argc) {
+    if (!command || strlen(command) == 0) {
+        *argc = 0;
+        return NULL;
+    }
+    
+    int count = 0;
+    int in_word = 0;
+    for (const char* p = command; *p; p++) {
+        if (*p != ' ' && *p != '\t') {
+            if (!in_word) {
+                count++;
+                in_word = 1;
+            }
+        } else {
+            in_word = 0;
+        }
+    }
+    
+    if (count == 0) {
+        *argc = 0;
+        return NULL;
+    }
+    
+    char** args = malloc((count + 1) * sizeof(char*));
+    if (!args) {
+        perror("malloc");
+        *argc = 0;
+        return NULL;
+    }
+    
+    int arg_index = 0;
+    const char* start = command;
+    in_word = 0;
+    
+    for (const char* p = command; *p; p++) {
+        if (*p != ' ' && *p != '\t') {
+            if (!in_word) {
+                start = p;
+                in_word = 1;
+            }
+        } else {
+            if (in_word) {
+                size_t len = p - start;
+                args[arg_index] = malloc(len + 1);
+                if (!args[arg_index]) {
+                    perror("malloc");
+                    for (int i = 0; i < arg_index; i++) {
+                        free(args[i]);
+                    }
+                    free(args);
+                    *argc = 0;
+                    return NULL;
+                }
+                strncpy(args[arg_index], start, len);
+                args[arg_index][len] = '\0';
+                arg_index++;
+                in_word = 0;
+            }
+        }
+    }
+    
+    if (in_word) {
+        size_t len = strlen(start);
+        args[arg_index] = malloc(len + 1);
+        if (!args[arg_index]) {
+            perror("malloc");
+            for (int i = 0; i < arg_index; i++) {
+                free(args[i]);
+            }
+            free(args);
+            *argc = 0;
+            return NULL;
+        }
+        strcpy(args[arg_index], start);
+        arg_index++;
+    }
+    
+    args[arg_index] = NULL;
+    *argc = arg_index;
+    return args;
+}
+
+Config* load_config(void) {
+    Config* config = malloc(sizeof(Config));
+    if (!config) {
+        perror("malloc");
+        return NULL;
+    }
+    
+    // Default configuration
+    config->launcher_args = NULL;
+    config->launcher_argc = 0;
+    
+    const char* home = getenv("HOME");
+    if (!home) {
+        struct passwd* pw = getpwuid(getuid());
+        if (pw) {
+            home = pw->pw_dir;
+        }
+    }
+    
+    if (!home) {
+        fprintf(stderr, "Warning: Could not determine home directory, using default configuration\n");
+        char** default_args = parse_launcher_command("fuzzel --dmenu", &config->launcher_argc);
+        if (default_args) {
+            config->launcher_args = default_args;
+        }
+        return config;
+    }
+    
+    char config_path[512];
+    snprintf(config_path, sizeof(config_path), "%s/.config/hyprworm/config", home);
+    
+    FILE* file = fopen(config_path, "r");
+    if (!file) {
+        if (errno != ENOENT) {
+            perror("fopen config");
+        }
+        char** default_args = parse_launcher_command("fuzzel --dmenu", &config->launcher_argc);
+        if (default_args) {
+            config->launcher_args = default_args;
+        }
+        return config;
+    }
+    
+    char line[512];
+    char* launcher_command = NULL;
+    
+    while (fgets(line, sizeof(line), file)) {
+        char* trimmed = line;
+        while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
+        if (*trimmed == '#' || *trimmed == '\n' || *trimmed == '\0') continue;
+        
+        char* equals = strchr(trimmed, '=');
+        if (!equals) continue;
+        
+        *equals = '\0';
+        char* key = trimmed;
+        char* value = equals + 1;
+        
+        while (*key == ' ' || *key == '\t') key++;
+        char* key_end = key + strlen(key) - 1;
+        while (key_end > key && (*key_end == ' ' || *key_end == '\t' || *key_end == '\n')) {
+            *key_end = '\0';
+            key_end--;
+        }
+        
+        while (*value == ' ' || *value == '\t') value++;
+        char* value_end = value + strlen(value) - 1;
+        while (value_end > value && (*value_end == ' ' || *value_end == '\t' || *value_end == '\n')) {
+            *value_end = '\0';
+            value_end--;
+        }
+        
+        if (strcmp(key, "launcher") == 0) {
+            launcher_command = strdup(value);
+        }
+    }
+    
+    fclose(file);
+    
+    if (launcher_command) {
+        char** args = parse_launcher_command(launcher_command, &config->launcher_argc);
+        if (args) {
+            config->launcher_args = args;
+        }
+        free(launcher_command);
+    } else {
+        char** default_args = parse_launcher_command("fuzzel --dmenu", &config->launcher_argc);
+        if (default_args) {
+            config->launcher_args = default_args;
+        }
+    }
+    
+    return config;
+}
+
+void free_config(Config* config) {
+    if (!config) return;
+    
+    if (config->launcher_args) {
+        for (int i = 0; i < config->launcher_argc; i++) {
+            free(config->launcher_args[i]);
+        }
+        free(config->launcher_args);
+    }
+    
+    free(config);
+}
+
 char* launch_frontend(WindowList* list, char** command) { 
     int pipe_to_child[2];   
     int pipe_from_child[2];
@@ -168,15 +361,28 @@ char* launch_frontend(WindowList* list, char** command) {
 }
 
 int main() {
+    // Load configuration
+    Config* config = load_config();
+    if (!config) {
+        fprintf(stderr, "Failed to load configuration\n");
+        return 1;
+    }
+
     // Get window data from Hyprland
     char* json_response = send_hypr_command("j/clients");
-    if (!json_response) { return 1; }
+    if (!json_response) { 
+        free_config(config);
+        return 1; 
+    }
     WindowList* windows = parse_window_data(json_response);
     free(json_response);
-    if (!windows) { return 1; }
+    if (!windows) { 
+        free_config(config);
+        return 1; 
+    }
 
-    char* frontend_cmd[] = {"fuzzel", "--dmenu", NULL};
-    char* selection = launch_frontend(windows, frontend_cmd);
+    // Launch frontend with configured launcher
+    char* selection = launch_frontend(windows, config->launcher_args);
 
     // Focus selected window
     if (selection) {
@@ -201,5 +407,6 @@ int main() {
     }
 
     free_window_list(windows);
+    free_config(config);
     return 0;
 }

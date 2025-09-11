@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,7 +6,18 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include "hyprworm.h"
+
 #define READ_BUFFER_SIZE 4096
+
+char* my_strdup(const char* str) {
+    if (!str) return NULL;
+    size_t len = strlen(str);
+    char* dup = malloc(len + 1);
+    if (dup) {
+        strcpy(dup, str);
+    }
+    return dup;
+}
 
 // Implementation of the IPC function
 char* send_hypr_command(const char* command) {
@@ -17,7 +29,7 @@ char* send_hypr_command(const char* command) {
         return NULL;
     }
     
-    char socket_path[256]; 
+    char socket_path[256];
     snprintf(socket_path, sizeof(socket_path), "%s/hypr/%s/.socket.sock", xdg_runtime_dir, instance_signature);
     
     int sock_fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -66,6 +78,66 @@ char* send_hypr_command(const char* command) {
     response[total_bytes_read] = '\0';
     close(sock_fd);
     return response;
+}
+
+static char* get_json_string(cJSON* object, const char* key) {
+    const cJSON* item = cJSON_GetObjectItemCaseSensitive(object, key);
+    if (cJSON_IsString(item) && (item->valuestring != NULL)) {
+        return my_strdup(item->valuestring);
+    }
+    return my_strdup(""); 
+}
+
+WindowList* parse_window_data(const char* json_string) {
+    cJSON* root = cJSON_Parse(json_string);
+    if (root == NULL || !cJSON_IsArray(root)) {
+        fprintf(stderr, "Error: Failed to parse JSON or root is not an array.\n");
+        cJSON_Delete(root);
+        return NULL;
+    }
+    
+    WindowList* list = malloc(sizeof(WindowList));
+    list->count = 0;
+    list->capacity = cJSON_GetArraySize(root);
+    list->windows = malloc(list->capacity * sizeof(WindowInfo));
+    
+    cJSON* window_json;
+    cJSON_ArrayForEach(window_json, root) {
+        const cJSON* title_item = cJSON_GetObjectItemCaseSensitive(window_json, "title");
+        if (!cJSON_IsString(title_item) || strlen(title_item->valuestring) == 0) {
+            continue;
+        }
+        
+        WindowInfo* win = &list->windows[list->count];
+        win->address = get_json_string(window_json, "address");
+        win->class_name = get_json_string(window_json, "class");
+        win->title = get_json_string(window_json, "title");
+        
+        const cJSON* workspace_obj = cJSON_GetObjectItemCaseSensitive(window_json, "workspace");
+        if (cJSON_IsObject(workspace_obj)) {
+            win->workspace_name = get_json_string((cJSON*)workspace_obj, "name");
+        } else {
+            win->workspace_name = my_strdup("?");
+        }
+        
+        list->count++;
+    }
+    
+    cJSON_Delete(root);
+    return list;
+}
+
+void free_window_list(WindowList* list) {
+    if (!list) return;
+    
+    for (size_t i = 0; i < list->count; i++) {
+        free(list->windows[i].address);
+        free(list->windows[i].workspace_name);
+        free(list->windows[i].class_name);
+        free(list->windows[i].title);
+    }
+    free(list->windows);
+    free(list);
 }
 
 int main() {

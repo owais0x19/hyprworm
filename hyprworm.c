@@ -9,6 +9,8 @@
 #include <cjson/cJSON.h>
 #include <pwd.h>
 #include <errno.h>
+#include <stdarg.h>
+#include <time.h>
 #include "hyprworm.h"
 
 #define READ_BUFFER_SIZE 4096
@@ -16,46 +18,138 @@
 #define PIPE_READ 0
 #define PIPE_WRITE 1
 
+static Config* g_config = NULL;
+
+void log_message(LogLevel level, const char* format, ...) {
+    if (!g_config || level > g_config->log_level) {
+        return;
+    }
+    
+    va_list args;
+    va_start(args, format);
+    
+    time_t now = time(NULL);
+    struct tm* tm_info = localtime(&now);
+    char timestamp[64];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
+    
+    char message[1024];
+    vsnprintf(message, sizeof(message), format, args);
+    
+    const char* level_names[] = {"ERROR", "WARNING", "INFO", "DEBUG"};
+    
+    fprintf(stderr, "[%s] %s: %s\n", timestamp, level_names[level], message);
+    
+    if (g_config->log_file) {
+        FILE* log_fp = fopen(g_config->log_file, "a");
+        if (log_fp) {
+            fprintf(log_fp, "[%s] %s: %s\n", timestamp, level_names[level], message);
+            fclose(log_fp);
+        }
+    }
+    
+    va_end(args);
+}
+
+void log_error(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    log_message(LOG_ERROR, format, args);
+    va_end(args);
+}
+
+void log_warning(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    log_message(LOG_WARNING, format, args);
+    va_end(args);
+}
+
+void log_info(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    log_message(LOG_INFO, format, args);
+    va_end(args);
+}
+
+void log_debug(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    log_message(LOG_DEBUG, format, args);
+    va_end(args);
+}
+
 // IPC, Parsing, and Memory Management
 char* send_hypr_command(const char* command) {
+    log_debug("Sending command to Hyprland: %s", command);
+    
     const char* xdg_runtime_dir = getenv("XDG_RUNTIME_DIR");
     const char* instance_signature = getenv("HYPRLAND_INSTANCE_SIGNATURE");
     if (!xdg_runtime_dir || !instance_signature) {
-        fprintf(stderr, "Error: Environment variables for Hyprland IPC not set.\n");
+        log_error("Environment variables for Hyprland IPC not set");
         return NULL;
     }
     char socket_path[MAX_SOCKET_PATH];
     snprintf(socket_path, sizeof(socket_path), "%s/hypr/%s/.socket.sock", xdg_runtime_dir, instance_signature);
+    log_debug("Connecting to socket: %s", socket_path);
+    
     int sock_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (sock_fd == -1) { perror("socket"); return NULL; }
+    if (sock_fd == -1) {
+        log_error("Failed to create socket: %s", strerror(errno));
+        return NULL;
+    }
+    
     struct sockaddr_un addr;
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
+    
     if (connect(sock_fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
-        perror("connect");
+        log_error("Failed to connect to Hyprland socket: %s", strerror(errno));
         close(sock_fd);
         return NULL;
     }
+    
     if (write(sock_fd, command, strlen(command)) == -1) {
-        perror("write");
+        log_error("Failed to write command to socket: %s", strerror(errno));
         close(sock_fd);
         return NULL;
     }
     char* response = malloc(READ_BUFFER_SIZE);
+    if (!response) {
+        log_error("Failed to allocate memory for response buffer");
+        close(sock_fd);
+        return NULL;
+    }
+    
     size_t total_bytes_read = 0;
     size_t buffer_size = READ_BUFFER_SIZE;
     ssize_t bytes_read;
+    
     while ((bytes_read = read(sock_fd, response + total_bytes_read, buffer_size - total_bytes_read - 1)) > 0) {
         total_bytes_read += bytes_read;
         if (total_bytes_read >= buffer_size - 1) {
             buffer_size *= 2;
             char* new_response = realloc(response, buffer_size);
-            if (!new_response) { perror("realloc"); free(response); close(sock_fd); return NULL; }
+            if (!new_response) {
+                log_error("Failed to reallocate response buffer: %s", strerror(errno));
+                free(response);
+                close(sock_fd);
+                return NULL;
+            }
             response = new_response;
         }
     }
+    
+    if (bytes_read == -1) {
+        log_error("Failed to read response from socket: %s", strerror(errno));
+        free(response);
+        close(sock_fd);
+        return NULL;
+    }
+    
     response[total_bytes_read] = '\0';
+    log_debug("Received %zu bytes from Hyprland", total_bytes_read);
     close(sock_fd);
     return response;
 }
@@ -67,16 +161,43 @@ static char* get_json_string(const cJSON* object, const char* key) {
 }
 
 WindowList* parse_window_data(const char* json_string) {
+    log_debug("Parsing window data from JSON");
+    
     cJSON* root = cJSON_Parse(json_string);
-    if (root == NULL || !cJSON_IsArray(root)) {
-        fprintf(stderr, "Error: Failed to parse JSON or root is not an array.\n");
+    if (root == NULL) {
+        const char* error_ptr = cJSON_GetErrorPtr();
+        if (error_ptr) {
+            log_error("JSON parse error before: %s", error_ptr);
+        } else {
+            log_error("Failed to parse JSON: unknown error");
+        }
+        cJSON_Delete(root);
+        return NULL;
+    }
+    
+    if (!cJSON_IsArray(root)) {
+        log_error("JSON root is not an array");
         cJSON_Delete(root);
         return NULL;
     }
     WindowList* list = malloc(sizeof(WindowList));
+    if (!list) {
+        log_error("Failed to allocate memory for WindowList");
+        cJSON_Delete(root);
+        return NULL;
+    }
+    
     list->count = 0;
     list->capacity = cJSON_GetArraySize(root);
+    log_debug("Found %d windows in JSON", list->capacity);
+    
     list->windows = malloc(list->capacity * sizeof(WindowInfo));
+    if (!list->windows) {
+        log_error("Failed to allocate memory for WindowInfo array");
+        free(list);
+        cJSON_Delete(root);
+        return NULL;
+    }
     const cJSON* window_json;
     cJSON_ArrayForEach(window_json, root) {
         const cJSON* title_item = cJSON_GetObjectItemCaseSensitive(window_json, "title");
@@ -204,7 +325,10 @@ Config* load_config(void) {
     config->launcher_argc = 0;
     config->show_title = 0;
     config->workspace_aliases = NULL;
-    config->alias_count = 0; 
+    config->alias_count = 0;
+    config->log_level = LOG_INFO;
+    config->log_file = NULL;
+    config->debug_mode = 0; 
     
     const char* home = getenv("HOME");
     if (!home) {
@@ -327,6 +451,22 @@ Config* load_config(void) {
                 config->workspace_aliases[config->alias_count].value = strdup(value);
                 config->alias_count++;
             }
+        } else if (strcmp(key, "log_level") == 0) {
+            if (strcmp(value, "ERROR") == 0) {
+                config->log_level = LOG_ERROR;
+            } else if (strcmp(value, "WARNING") == 0) {
+                config->log_level = LOG_WARNING;
+            } else if (strcmp(value, "INFO") == 0) {
+                config->log_level = LOG_INFO;
+            } else if (strcmp(value, "DEBUG") == 0) {
+                config->log_level = LOG_DEBUG;
+            }
+        } else if (strcmp(key, "log_file") == 0) {
+            config->log_file = strdup(value);
+        } else if (strcmp(key, "debug_mode") == 0) {
+            if (strcmp(value, "true") == 0 || strcmp(value, "1") == 0 || strcmp(value, "yes") == 0) {
+                config->debug_mode = 1;
+            }
         }
     }
     
@@ -364,6 +504,10 @@ void free_config(Config* config) {
             free(config->workspace_aliases[i].value);
         }
         free(config->workspace_aliases);
+    }
+    
+    if (config->log_file) {
+        free(config->log_file);
     }
     
     free(config);
@@ -491,19 +635,33 @@ int main() {
         fprintf(stderr, "Failed to load configuration\n");
         return 1;
     }
+    
+    // Set global config for logging
+    g_config = config;
+    
+    log_info("Hyprworm started");
+    if (config->debug_mode) {
+        log_debug("Debug mode enabled");
+    }
 
     // Get window data from Hyprland
+    log_info("Getting window list from Hyprland");
     char* json_response = send_hypr_command("j/clients");
     if (!json_response) { 
+        log_error("Failed to get window list from Hyprland");
         free_config(config);
         return 1; 
     }
+    
     WindowList* windows = parse_window_data(json_response);
     free(json_response);
     if (!windows) { 
+        log_error("Failed to parse window data");
         free_config(config);
         return 1; 
     }
+    
+    log_info("Found %zu windows", windows->count);
 
     // Launch frontend with configured launcher
     char* selection = launch_frontend(windows, config->launcher_args, config->show_title, config);

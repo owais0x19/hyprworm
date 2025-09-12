@@ -27,7 +27,7 @@ clean:
 
 # Install rule: copy the compiled binary to a system-wide location
 install: all
-	install -Dm755 $(TARGET) /usr/local/bin/$(TARGET)
+	install -Dm755 $(TARGET) $(DESTDIR)/usr/bin/$(TARGET)
 
 # Uninstall rule
 uninstall:

@@ -1,0 +1,44 @@
+# Build artifacts
+hyprworm
+hyprworm.o
+*.o
+*.so
+*.a
+
+# Package files
+*.pkg.tar.zst
+*.pkg.tar.xz
+*.pkg.tar.gz
+*.pkg.tar.bz2
+*.pkg.tar.lz4
+*.pkg.tar.Z
+*.pkg.tar
+pkg/
+src/
+
+# AUR specific
+# .SRCINFO is needed for AUR, so don't ignore it
+
+# Log files
+*.log
+/tmp/hyprworm.log
+
+# Editor files
+*~
+.*.swp
+.*.swo
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Temporary files
+*.tmp
+*.temp

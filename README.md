@@ -24,6 +24,7 @@ So I built hyprworm as a systems programming exercise that demonstrates Unix dom
 
 ## Features
 
+- **AUR package** - easy installation on Arch Linux with `yay -S hyprworm`
 - **Universal launcher support** - works with fuzzel, wofi, rofi, dmenu, bemenu
 - **Configurable display** - show/hide window titles, customize workspace names
 - **Workspace aliases** - replace workspace names with custom symbols (emojis, etc.)
@@ -32,6 +33,19 @@ So I built hyprworm as a systems programming exercise that demonstrates Unix dom
 - **Fast** - direct IPC communication with Hyprland
 
 ## Installation
+
+### AUR (Arch Linux) - Recommended
+
+```bash
+# Using yay
+yay -S hyprworm
+
+# Using paru
+paru -S hyprworm
+
+# Using pacman (if you have AUR enabled)
+pacman -S hyprworm
+```
 
 ### Dependencies
 

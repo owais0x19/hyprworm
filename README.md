@@ -1,6 +1,11 @@
-# hyprworm
+# hyprworm 🪱
 
-A fast and lightweight window switcher for Hyprland built in C. Quickly switch between open windows with a clean, configurable interface that works with any dmenu-compatible launcher.
+A fast and lightweight window switcher for Hyprland built in C. Quickly switch between open windows with a clean, configurable interface that works with any dmenu-compatible launcher. Like a wormhole to a window.
+
+## Demo (Fuzzel with custom config)
+<img width="930" height="546" alt="image" src="https://github.com/user-attachments/assets/b72bd22b-38fc-4471-80f2-b39b02ce2727" />
+<img width="932" height="549" alt="image" src="https://github.com/user-attachments/assets/39107c3c-3a84-4548-8d96-d7e81c86a185" />
+
 
 ## Why I Built This
 
@@ -285,11 +290,3 @@ Contributions welcome! Areas for improvement:
 ## License
 
 MIT License - see LICENSE file for details.
-
-## Acknowledgments
-
-- **Hyprland** - The amazing Wayland compositor that makes this possible
-- **cJSON** - Lightweight JSON parsing library
-- **Unix philosophy** - "Do one thing and do it well"
-
----

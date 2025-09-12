@@ -3,7 +3,10 @@
 A fast and lightweight window switcher for Hyprland built in C. Quickly switch between open windows with a clean, configurable interface that works with any dmenu-compatible launcher. Like a wormhole to a window.
 
 ## Demo (Fuzzel with custom config)
-<img width="930" height="546" alt="image" src="https://github.com/user-attachments/assets/b72bd22b-38fc-4471-80f2-b39b02ce2727" />
+
+https://github.com/user-attachments/assets/2f3af244-1296-48d4-8261-c5d4c0f9a90d
+
+---
 <img width="932" height="549" alt="image" src="https://github.com/user-attachments/assets/39107c3c-3a84-4548-8d96-d7e81c86a185" />
 
 

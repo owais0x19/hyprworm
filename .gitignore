@@ -16,8 +16,10 @@ hyprworm.o
 pkg/
 src/
 
-# AUR specific
-# .SRCINFO is needed for AUR, so don't ignore it
+# AUR specific files (keep these in AUR repo only)
+PKGBUILD
+.SRCINFO
+hyprworm-*.tar.gz
 
 # Log files
 *.log

@@ -28,6 +28,19 @@ typedef enum {
     LOG_DEBUG = 3
 } LogLevel;
 
+typedef enum {
+    SORT_WORKSPACE = 0,
+    SORT_APPLICATION = 1,
+    SORT_TITLE = 2,
+    SORT_NONE = 3
+} SortOrder;
+
+typedef enum {
+    SPECIAL_TOP = 0,
+    SPECIAL_BOTTOM = 1,
+    SPECIAL_DEFAULT = 2
+} SpecialPosition;
+
 typedef struct {
     char** launcher_args;
     int launcher_argc;
@@ -37,6 +50,8 @@ typedef struct {
     LogLevel log_level;
     char* log_file;
     int debug_mode;
+    SortOrder sort_order;
+    SpecialPosition special_position;
 } Config;
 
 // Configuration functions
@@ -51,5 +66,8 @@ void log_error(const char* format, ...);
 void log_warning(const char* format, ...);
 void log_info(const char* format, ...);
 void log_debug(const char* format, ...);
+
+// Sorting functions
+void sort_window_list(WindowList* list, Config* config);
 
 #endif

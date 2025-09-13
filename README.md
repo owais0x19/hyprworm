@@ -94,6 +94,10 @@ launcher = fuzzel --dmenu
 # Show window titles in display (true/false)
 show_title = false
 
+# Window sorting options
+sort_order = workspace                    # workspace, application, title, none
+special_workspace_position = default      # top, bottom, default
+
 # Workspace aliases - replace names with custom symbols
 workspace_alias_special = "⭐ "
 workspace_alias_work = "💼 "
@@ -140,6 +144,63 @@ workspace_alias_1 = "1️⃣"
 workspace_alias_2 = "2️⃣"
 workspace_alias_3 = "3️⃣"
 ```
+
+### Sorting Options
+
+Hyprworm supports multiple sorting methods for organizing windows:
+
+```ini
+# Sort windows by workspace number (default)
+sort_order = workspace
+
+# Sort windows alphabetically by application name
+sort_order = application
+
+# Sort windows alphabetically by window title
+sort_order = title
+
+# No sorting - keep Hyprland's default order
+sort_order = none
+```
+
+**Special Workspace Positioning:**
+
+Control where special workspaces (non-numeric names) appear:
+
+```ini
+# Put special workspaces at the top
+special_workspace_position = top
+
+# Put special workspaces at the bottom
+special_workspace_position = bottom
+
+# Mix special workspaces with regular ones (default behavior)
+special_workspace_position = default
+```
+
+**Sorting Examples:**
+
+**Workspace sorting with special workspaces at top:**
+```
+[⭐ :communication] firefox
+[⭐ :communication] discord
+[1] code
+[1] terminal
+[2] browser
+```
+
+**Application sorting with special workspaces at bottom:**
+```
+[1] code: README.md
+[2] firefox: GitHub
+[special] discord: Chat
+[special] spotify: Music
+```
+
+**Note:** 
+- When sorting by workspace with `special_workspace_position = default`, special workspaces will be placed at the bottom of the workspace list.
+- When `sort_order = none` with `special_workspace_position = default`, windows appear in Hyprland's original order.
+- When `sort_order = none` with `special_workspace_position = top` or `bottom`, special workspaces are moved to the specified position while preserving Hyprland's order for regular workspaces.
 
 ## Usage
 

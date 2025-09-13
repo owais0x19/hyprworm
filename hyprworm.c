@@ -328,7 +328,9 @@ Config* load_config(void) {
     config->alias_count = 0;
     config->log_level = LOG_INFO;
     config->log_file = NULL;
-    config->debug_mode = 0; 
+    config->debug_mode = 0;
+    config->sort_order = SORT_WORKSPACE;
+    config->special_position = SPECIAL_DEFAULT; 
     
     const char* home = getenv("HOME");
     if (!home) {
@@ -430,6 +432,18 @@ Config* load_config(void) {
             value_end--;
         }
         
+        // remove comments (everything after #)
+        char* comment = strchr(value, '#');
+        if (comment) {
+            *comment = '\0';
+            // trim trailing whitespace after removing comment
+            value_end = comment - 1;
+            while (value_end > value && (*value_end == ' ' || *value_end == '\t')) {
+                *value_end = '\0';
+                value_end--;
+            }
+        }
+        
         // remove quotes if present
         if (*value == '"' && *value_end == '"' && value_end > value) {
             value++; 
@@ -466,6 +480,24 @@ Config* load_config(void) {
         } else if (strcmp(key, "debug_mode") == 0) {
             if (strcmp(value, "true") == 0 || strcmp(value, "1") == 0 || strcmp(value, "yes") == 0) {
                 config->debug_mode = 1;
+            }
+        } else if (strcmp(key, "sort_order") == 0) {
+            if (strcmp(value, "workspace") == 0) {
+                config->sort_order = SORT_WORKSPACE;
+            } else if (strcmp(value, "application") == 0) {
+                config->sort_order = SORT_APPLICATION;
+            } else if (strcmp(value, "title") == 0) {
+                config->sort_order = SORT_TITLE;
+            } else if (strcmp(value, "none") == 0) {
+                config->sort_order = SORT_NONE;
+            }
+        } else if (strcmp(key, "special_workspace_position") == 0) {
+            if (strcmp(value, "top") == 0) {
+                config->special_position = SPECIAL_TOP;
+            } else if (strcmp(value, "bottom") == 0) {
+                config->special_position = SPECIAL_BOTTOM;
+            } else if (strcmp(value, "default") == 0) {
+                config->special_position = SPECIAL_DEFAULT;
             }
         }
     }
@@ -559,6 +591,125 @@ char* apply_workspace_alias(const char* workspace_name, Config* config) {
     }
     
     return result;
+}
+
+static int is_special_workspace(const char* workspace_name) {
+    if (!workspace_name || workspace_name[0] == '\0') return 0;
+    return (workspace_name[0] < '0' || workspace_name[0] > '9');
+}
+
+static int get_workspace_sort_value(const char* workspace_name, Config* config) {
+    if (is_special_workspace(workspace_name)) {
+        switch (config->special_position) {
+            case SPECIAL_TOP:
+                return -1000;  // Special workspaces at top
+            case SPECIAL_BOTTOM:
+                return 10000;  // Special workspaces at bottom
+            case SPECIAL_DEFAULT:
+                // For workspace sorting, default means bottom
+                // For other sorting methods, default means mixed in (use 0)
+                return (config->sort_order == SORT_WORKSPACE) ? 10000 : 0;
+        }
+    }
+    return atoi(workspace_name);
+}
+
+static int compare_workspace(const void* a, const void* b) {
+    const WindowInfo* win_a = (const WindowInfo*)a;
+    const WindowInfo* win_b = (const WindowInfo*)b;
+    
+    int val_a = get_workspace_sort_value(win_a->workspace_name, g_config);
+    int val_b = get_workspace_sort_value(win_b->workspace_name, g_config);
+    
+    if (val_a != val_b) return val_a - val_b;
+    
+    // Secondary sort by application name for same workspace
+    return strcmp(win_a->class_name, win_b->class_name);
+}
+
+static int compare_application(const void* a, const void* b) {
+    const WindowInfo* win_a = (const WindowInfo*)a;
+    const WindowInfo* win_b = (const WindowInfo*)b;
+    
+    // Handle special workspace positioning for non-workspace sorts
+    if (g_config->special_position != SPECIAL_DEFAULT) {
+        int is_special_a = is_special_workspace(win_a->workspace_name);
+        int is_special_b = is_special_workspace(win_b->workspace_name);
+        
+        if (is_special_a != is_special_b) {
+            if (g_config->special_position == SPECIAL_TOP) {
+                return is_special_a ? -1 : 1;  // Special workspaces first
+            } else {
+                return is_special_a ? 1 : -1;  // Special workspaces last
+            }
+        }
+    }
+    
+    return strcmp(win_a->class_name, win_b->class_name);
+}
+
+static int compare_title(const void* a, const void* b) {
+    const WindowInfo* win_a = (const WindowInfo*)a;
+    const WindowInfo* win_b = (const WindowInfo*)b;
+    
+    // Handle special workspace positioning for non-workspace sorts
+    if (g_config->special_position != SPECIAL_DEFAULT) {
+        int is_special_a = is_special_workspace(win_a->workspace_name);
+        int is_special_b = is_special_workspace(win_b->workspace_name);
+        
+        if (is_special_a != is_special_b) {
+            if (g_config->special_position == SPECIAL_TOP) {
+                return is_special_a ? -1 : 1;  // Special workspaces first
+            } else {
+                return is_special_a ? 1 : -1;  // Special workspaces last
+            }
+        }
+    }
+    
+    return strcmp(win_a->title, win_b->title);
+}
+
+static int compare_none_with_special(const void* a, const void* b) {
+    const WindowInfo* win_a = (const WindowInfo*)a;
+    const WindowInfo* win_b = (const WindowInfo*)b;
+    
+    int is_special_a = is_special_workspace(win_a->workspace_name);
+    int is_special_b = is_special_workspace(win_b->workspace_name);
+    
+    // If one is special and one is not, handle positioning
+    if (is_special_a != is_special_b) {
+        if (g_config->special_position == SPECIAL_TOP) {
+            return is_special_a ? -1 : 1;  // Special workspaces first
+        } else if (g_config->special_position == SPECIAL_BOTTOM) {
+            return is_special_a ? 1 : -1;  // Special workspaces last
+        }
+    }
+    
+    return 0;
+}
+
+void sort_window_list(WindowList* list, Config* config) {
+    if (!list || !config || list->count <= 1) return;
+    
+    switch (config->sort_order) {
+        case SORT_WORKSPACE:
+            qsort(list->windows, list->count, sizeof(WindowInfo), compare_workspace);
+            break;
+        case SORT_APPLICATION:
+            qsort(list->windows, list->count, sizeof(WindowInfo), compare_application);
+            break;
+        case SORT_TITLE:
+            qsort(list->windows, list->count, sizeof(WindowInfo), compare_title);
+            break;
+        case SORT_NONE:
+            if (config->special_position != SPECIAL_DEFAULT) {
+                qsort(list->windows, list->count, sizeof(WindowInfo), compare_none_with_special);
+            }
+            break;
+        default:
+            // No sorting, keep Hyprland's order
+            break;
+    }
 }
 
 char* launch_frontend(WindowList* list, char** command, int show_title, Config* config) {
@@ -662,6 +813,9 @@ int main() {
     }
     
     log_info("Found %zu windows", windows->count);
+    
+    // Sort windows according to configuration
+    sort_window_list(windows, config);
 
     // Launch frontend with configured launcher
     char* selection = launch_frontend(windows, config->launcher_args, config->show_title, config);

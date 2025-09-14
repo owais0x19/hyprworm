@@ -20,13 +20,10 @@
 
 static Config* g_config = NULL;
 
-void log_message(LogLevel level, const char* format, ...) {
+void log_message(LogLevel level, const char* format, va_list args) {
     if (!g_config || level > g_config->log_level) {
         return;
     }
-    
-    va_list args;
-    va_start(args, format);
     
     time_t now = time(NULL);
     struct tm* tm_info = localtime(&now);
@@ -65,7 +62,7 @@ void log_warning(const char* format, ...) {
     va_end(args);
 }
 
-void log_info(const char* format, ...) {
+void log_info(const char* format, ...){
     va_list args;
     va_start(args, format);
     log_message(LOG_INFO, format, args);
@@ -328,7 +325,6 @@ Config* load_config(void) {
     config->alias_count = 0;
     config->log_level = LOG_INFO;
     config->log_file = NULL;
-    config->debug_mode = 0;
     config->sort_order = SORT_WORKSPACE;
     config->special_position = SPECIAL_DEFAULT; 
     
@@ -477,10 +473,6 @@ Config* load_config(void) {
             }
         } else if (strcmp(key, "log_file") == 0) {
             config->log_file = strdup(value);
-        } else if (strcmp(key, "debug_mode") == 0) {
-            if (strcmp(value, "true") == 0 || strcmp(value, "1") == 0 || strcmp(value, "yes") == 0) {
-                config->debug_mode = 1;
-            }
         } else if (strcmp(key, "sort_order") == 0) {
             if (strcmp(value, "workspace") == 0) {
                 config->sort_order = SORT_WORKSPACE;
@@ -791,10 +783,7 @@ int main() {
     g_config = config;
     
     log_info("Hyprworm started");
-    if (config->debug_mode) {
-        log_debug("Debug mode enabled");
-    }
-
+    
     // Get window data from Hyprland
     log_info("Getting window list from Hyprland");
     char* json_response = send_hypr_command("j/clients");

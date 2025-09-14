@@ -49,7 +49,6 @@ typedef struct {
     int alias_count;
     LogLevel log_level;
     char* log_file;
-    int debug_mode;
     SortOrder sort_order;
     SpecialPosition special_position;
 } Config;
@@ -61,7 +60,7 @@ char** parse_launcher_command(const char* command, int* argc);
 char* apply_workspace_alias(const char* workspace_name, Config* config);
 
 // Logging functions
-void log_message(LogLevel level, const char* format, ...);
+void log_message(LogLevel level, const char* format, va_list args);
 void log_error(const char* format, ...);
 void log_warning(const char* format, ...);
 void log_info(const char* format, ...);

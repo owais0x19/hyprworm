@@ -4,7 +4,7 @@ A fast and lightweight window switcher for Hyprland built in C. Quickly switch b
 
 ## Demo (Fuzzel with custom config)
 
-https://github.com/user-attachments/assets/2f3af244-1296-48d4-8261-c5d4c0f9a90d
+https://github.com/user-attachments/assets/777a7e7d-1985-4909-946f-e30c6a8a724f
 
 ---
 <img width="932" height="549" alt="image" src="https://github.com/user-attachments/assets/39107c3c-3a84-4548-8d96-d7e81c86a185" />

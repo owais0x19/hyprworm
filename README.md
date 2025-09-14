@@ -106,7 +106,6 @@ workspace_alias_gaming = "🎮 "
 # Logging configuration
 log_level = INFO          # ERROR, WARNING, INFO, DEBUG
 log_file = /tmp/hyprworm.log  # Optional log file
-debug_mode = false        # Enable debug output
 ```
 
 ### Launcher Examples
@@ -212,9 +211,6 @@ hyprworm
 
 # Check configuration
 hyprworm --help
-
-# Debug mode
-hyprworm --debug
 ```
 
 ### Display Formats
@@ -245,9 +241,6 @@ log_level = INFO
 
 # Optional log file (stderr if not specified)
 log_file = /tmp/hyprworm.log
-
-# Enable debug output
-debug_mode = true
 ```
 
 ### Error Handling
@@ -265,7 +258,6 @@ Hyprworm includes comprehensive error handling:
 Enable debug mode for troubleshooting:
 
 ```ini
-debug_mode = true
 log_level = DEBUG
 ```
 
@@ -338,7 +330,6 @@ Hyprland → IPC Socket → JSON Parser → Window List → Launcher → User Se
 
 1. **Enable debug mode:**
    ```ini
-   debug_mode = true
    log_level = DEBUG
    ```
 

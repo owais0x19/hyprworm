@@ -730,8 +730,12 @@ char* launch_frontend(WindowList* list, char** command, int show_title, Config* 
 
         // Execute the frontend command
         execvp(command[0], command);
-        perror("execvp");
-        exit(1);
+        
+	if (errno == ENOENT) {
+		log_error("Launcher not found, specify correct launcher in config");
+	}
+
+	exit(1);
     } else {
         close(pipe_to_child[PIPE_READ]);
         close(pipe_from_child[PIPE_WRITE]);

